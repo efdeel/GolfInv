@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
@@ -128,7 +130,7 @@ fun InventoryScreen(
     var showDeleteAllStep2Dialog by remember { mutableStateOf(false) }
     var deleteConfirmationInputText by remember { mutableStateOf("") }
 
-    // Category Filter State: "Keseluruhan", "Driver", "Iron", "Wedge", "Putter", etc.
+    // Category Filter State
     var selectedCategoryFilter by rememberSaveable { mutableStateOf("Keseluruhan") }
     val categoryOptions = listOf("Keseluruhan", "Driver", "Fairway Wood", "Rescue", "Iron", "Wedge", "Putter")
 
@@ -294,7 +296,7 @@ fun InventoryScreen(
                 }
             }
 
-            // Item 2: Category Filter Buttons (Clicking opens popup summary of items & rupiah)
+            // Item 2: Category Filter Buttons (Clicking opens popup summary with items, rupiah, and brand breakdown)
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -322,7 +324,7 @@ fun InventoryScreen(
                             FilterChip(
                                 selected = isSelected,
                                 onClick = {
-                                    // Clicking opens the summary popup showing item count and rupiah
+                                    // Clicking opens the summary popup showing item count, rupiah, and brand breakdown
                                     selectedCategoryForSummary = category
                                 },
                                 label = { Text("$category ($count)", fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
@@ -502,7 +504,7 @@ fun InventoryScreen(
         }
     }
 
-    // Category Summary Popup Dialog (Shows Item Count & Rupiah metrics)
+    // Category Summary Popup Dialog (Shows Item Count, Rupiah, and Brand breakdown sorted descending)
     if (selectedCategoryForSummary != null) {
         CategorySummaryDialog(
             categoryName = selectedCategoryForSummary!!,
@@ -665,6 +667,7 @@ fun InventoryScreen(
         EditGolfClubDialog(
             club = editingClub,
             isNewItem = false,
+            brandList = brandList,
             onDismiss = { viewModel.setEditingClub(null) },
             onSave = { brand, clubType, type, loft, isAdjustable, year, shaft, grip, condition, cost, sell, isSold, notes ->
                 viewModel.updateClub(
@@ -699,6 +702,7 @@ fun InventoryScreen(
         EditGolfClubDialog(
             club = null,
             isNewItem = true,
+            brandList = brandList,
             onDismiss = { showAddManualDialog = false },
             onSave = { brand, clubType, type, loft, isAdjustable, year, shaft, grip, condition, cost, sell, isSold, notes ->
                 viewModel.saveManualClub(
@@ -711,7 +715,8 @@ fun InventoryScreen(
 }
 
 /**
- * Category Summary Popup Dialog showing total item count and rupiah financials.
+ * Category Summary Popup Dialog showing total item count, rupiah financials,
+ * and brand breakdown sorted from most to least (count >= 1).
  */
 @Composable
 fun CategorySummaryDialog(
@@ -730,6 +735,16 @@ fun CategorySummaryDialog(
     val totalSelling = categoryClubs.sumOf { it.sellingPrice }
     val totalCost = categoryClubs.sumOf { it.costPrice }
     val totalProfit = (totalSelling - totalCost)
+
+    // Group by brand, count items, filter >= 1, and sort descending (terbanyak ke tersedikit)
+    val brandBreakdown = remember(categoryClubs) {
+        categoryClubs
+            .groupBy { it.brand }
+            .mapValues { entry -> entry.value.size }
+            .filter { it.value >= 1 }
+            .entries
+            .sortedByDescending { it.value }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -760,7 +775,10 @@ fun CategorySummaryDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Item Count Card
@@ -804,6 +822,59 @@ fun CategorySummaryDialog(
                             Column(horizontalAlignment = Alignment.End) {
                                 Text("Potensi Keuntungan", fontSize = 10.sp, color = Color.White.copy(alpha = 0.8f))
                                 Text(GolfStringUtils.formatPrice(totalProfit), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GolfAccentGold)
+                            }
+                        }
+                    }
+                }
+
+                // Brand Breakdown Section (Sorted descending, count >= 1)
+                if (brandBreakdown.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "JUMLAH MEREK (URUT TERBANYAK)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GolfGreenSecondary,
+                        letterSpacing = 0.5.sp
+                    )
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            brandBreakdown.forEach { (brandName, count) ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = brandName,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF0F172A)
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = GolfGreenPrimary.copy(alpha = 0.12f)
+                                    ) {
+                                        Text(
+                                            text = "$count item",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = GolfGreenPrimary,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

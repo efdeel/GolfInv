@@ -21,66 +21,60 @@ data class IdentifiedGolfClub(
     val webSourceDescription: String = "",
     val hasScrewDetected: Boolean = false,
     val screwMessage: String = "",
-    val visualMatchScore: Float = 0.96f
+    val visualMatchScore: Float = 0.96f,
+
+    // Side-by-Side comparison fields
+    val ocrBrand: String = "",
+    val ocrModel: String = "",
+    val ocrLoft: String = "10.5°",
+    val ocrYear: String = "2024",
+
+    val webBrand: String = "",
+    val webModel: String = "",
+    val webLoft: String = "10.5°",
+    val webYear: String = "2024",
+    val webUrl: String = ""
 )
 
 object GolfClubRecognitionEngine {
 
     val clubTypeOptions = listOf("Driver", "Fairway Wood", "Rescue", "Iron", "Wedge", "Putter")
 
-    // Preset catalog of known golf club head models
+    // Objective, unbiased catalog of golf club head specifications
     private val catalog = listOf(
-        // TaylorMade
-        ClubCatalogEntry(listOf("TAYLORMADE", "QI10", "MAX"), "TaylorMade", "Driver", "Qi10 Max Driver", "10.5°", true, "2024"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "QI10", "LS"), "TaylorMade", "Driver", "Qi10 LS Driver", "9.0°", true, "2024"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "QI10"), "TaylorMade", "Driver", "Qi10 Driver", "10.5°", true, "2024"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "STEALTH", "2", "HD"), "TaylorMade", "Driver", "Stealth 2 HD Driver", "10.5°", true, "2023"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "STEALTH", "2"), "TaylorMade", "Driver", "Stealth 2 Driver", "10.5°", true, "2023"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "STEALTH", "PLUS"), "TaylorMade", "Driver", "Stealth Plus Driver", "9.0°", true, "2022"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "STEALTH"), "TaylorMade", "Driver", "Stealth Driver", "10.5°", true, "2022"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "SIM2", "MAX"), "TaylorMade", "Driver", "SIM2 Max Driver", "10.5°", true, "2021"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "SIM2"), "TaylorMade", "Driver", "SIM2 Driver", "9.0°", true, "2021"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "P790"), "TaylorMade", "Iron", "P790 Irons", "23.0°", false, "2023"),
-        ClubCatalogEntry(listOf("TAYLORMADE", "P770"), "TaylorMade", "Iron", "P770 Irons", "25.0°", false, "2023"),
+        ClubCatalogEntry(listOf("QI10", "MAX"), "TaylorMade", "Driver", "Qi10 Max Driver", "10.5°", true, "2024"),
+        ClubCatalogEntry(listOf("QI10", "LS"), "TaylorMade", "Driver", "Qi10 LS Driver", "9.0°", true, "2024"),
+        ClubCatalogEntry(listOf("QI10"), "TaylorMade", "Driver", "Qi10 Driver", "10.5°", true, "2024"),
+        ClubCatalogEntry(listOf("STEALTH", "2", "HD"), "TaylorMade", "Driver", "Stealth 2 HD Driver", "10.5°", true, "2023"),
+        ClubCatalogEntry(listOf("STEALTH", "2"), "TaylorMade", "Driver", "Stealth 2 Driver", "10.5°", true, "2023"),
+        ClubCatalogEntry(listOf("STEALTH", "PLUS"), "TaylorMade", "Driver", "Stealth Plus Driver", "9.0°", true, "2022"),
+        ClubCatalogEntry(listOf("STEALTH"), "TaylorMade", "Driver", "Stealth Driver", "10.5°", true, "2022"),
+        ClubCatalogEntry(listOf("SIM2", "MAX"), "TaylorMade", "Driver", "SIM2 Max Driver", "10.5°", true, "2021"),
+        ClubCatalogEntry(listOf("SIM2"), "TaylorMade", "Driver", "SIM2 Driver", "9.0°", true, "2021"),
 
-        // Titleist
         ClubCatalogEntry(listOf("TITLEIST", "GT2"), "Titleist", "Driver", "GT2 Driver", "10.0°", true, "2024"),
         ClubCatalogEntry(listOf("TITLEIST", "GT3"), "Titleist", "Driver", "GT3 Driver", "9.0°", true, "2024"),
-        ClubCatalogEntry(listOf("TITLEIST", "TSR2"), "Titleist", "Driver", "TSR2 Driver", "10.0°", true, "2022"),
-        ClubCatalogEntry(listOf("TITLEIST", "TSR3"), "Titleist", "Driver", "TSR3 Driver", "9.0°", true, "2022"),
-        ClubCatalogEntry(listOf("TITLEIST", "T100"), "Titleist", "Iron", "T100 Irons", "27.0°", false, "2023"),
-        ClubCatalogEntry(listOf("TITLEIST", "T200"), "Titleist", "Iron", "T200 Irons", "24.0°", false, "2023"),
-        ClubCatalogEntry(listOf("VOKEY", "SM10"), "Titleist", "Wedge", "Vokey Design SM10 Wedge", "56.0°", false, "2024"),
-        ClubCatalogEntry(listOf("VOKEY", "SM9"), "Titleist", "Wedge", "Vokey Design SM9 Wedge", "56.0°", false, "2022"),
-        ClubCatalogEntry(listOf("SCOTTY", "CAMERON"), "Titleist", "Putter", "Scotty Cameron Putter", "3.5°", false, "2024"),
+        ClubCatalogEntry(listOf("TSR2"), "Titleist", "Driver", "TSR2 Driver", "10.0°", true, "2022"),
+        ClubCatalogEntry(listOf("TSR3"), "Titleist", "Driver", "TSR3 Driver", "9.0°", true, "2022"),
 
-        // Callaway
-        ClubCatalogEntry(listOf("CALLAWAY", "PARADYM", "AI", "SMOKE"), "Callaway", "Driver", "Paradym Ai Smoke MAX Driver", "10.5°", true, "2024"),
-        ClubCatalogEntry(listOf("CALLAWAY", "PARADYM"), "Callaway", "Driver", "Paradym Driver", "10.5°", true, "2023"),
-        ClubCatalogEntry(listOf("CALLAWAY", "ROGUE", "ST"), "Callaway", "Driver", "Rogue ST MAX Driver", "10.5°", true, "2022"),
-        ClubCatalogEntry(listOf("CALLAWAY", "EPIC"), "Callaway", "Driver", "Epic Speed Driver", "10.5°", true, "2021"),
-        ClubCatalogEntry(listOf("CALLAWAY", "JAWS"), "Callaway", "Wedge", "Jaws Raw Wedge", "54.0°", false, "2022"),
+        ClubCatalogEntry(listOf("MAVRIK", "SUB", "ZERO"), "Callaway", "Driver", "Callaway Mavrik Sub Zero Driver", "9.0°", true, "2020"),
+        ClubCatalogEntry(listOf("MAVRIK", "MAX"), "Callaway", "Driver", "Callaway Mavrik Max Driver", "10.5°", true, "2020"),
+        ClubCatalogEntry(listOf("MAVRIK"), "Callaway", "Driver", "Callaway Mavrik Driver", "10.5°", true, "2020"),
+        ClubCatalogEntry(listOf("PARADYM", "AI", "SMOKE"), "Callaway", "Driver", "Paradym Ai Smoke MAX Driver", "10.5°", true, "2024"),
+        ClubCatalogEntry(listOf("PARADYM"), "Callaway", "Driver", "Paradym Driver", "10.5°", true, "2023"),
+        ClubCatalogEntry(listOf("ROGUE", "ST"), "Callaway", "Driver", "Rogue ST MAX Driver", "10.5°", true, "2022"),
+        ClubCatalogEntry(listOf("EPIC"), "Callaway", "Driver", "Epic Speed Driver", "10.5°", true, "2021"),
 
-        // PING
-        ClubCatalogEntry(listOf("PING", "G430", "MAX"), "PING", "Driver", "G430 MAX Driver", "10.5°", true, "2023"),
-        ClubCatalogEntry(listOf("PING", "G430"), "PING", "Driver", "G430 Driver", "10.5°", true, "2023"),
-        ClubCatalogEntry(listOf("PING", "G425"), "PING", "Driver", "G425 Driver", "9.0°", true, "2020"),
-        ClubCatalogEntry(listOf("PING", "I230"), "PING", "Iron", "i230 Irons", "26.0°", false, "2022"),
+        ClubCatalogEntry(listOf("G430", "MAX"), "PING", "Driver", "G430 MAX Driver", "10.5°", true, "2023"),
+        ClubCatalogEntry(listOf("G430"), "PING", "Driver", "G430 Driver", "10.5°", true, "2023"),
+        ClubCatalogEntry(listOf("G425"), "PING", "Driver", "G425 Driver", "9.0°", true, "2020"),
 
-        // Cobra
-        ClubCatalogEntry(listOf("COBRA", "DARKSPEED"), "Cobra", "Driver", "Darkspeed MAX Driver", "10.5°", true, "2024"),
-        ClubCatalogEntry(listOf("COBRA", "AEROJET"), "Cobra", "Driver", "Aerojet Driver", "10.5°", true, "2023"),
-        ClubCatalogEntry(listOf("COBRA", "LTDX"), "Cobra", "Driver", "LTDx Driver", "10.5°", true, "2022"),
+        ClubCatalogEntry(listOf("DARKSPEED"), "Cobra", "Driver", "Darkspeed MAX Driver", "10.5°", true, "2024"),
+        ClubCatalogEntry(listOf("AEROJET"), "Cobra", "Driver", "Aerojet Driver", "10.5°", true, "2023"),
 
-        // Mizuno
-        ClubCatalogEntry(listOf("MIZUNO", "ST-MAX", "230"), "Mizuno", "Driver", "ST-MAX 230 Driver", "9.5°", true, "2024"),
-        ClubCatalogEntry(listOf("MIZUNO", "JPX923"), "Mizuno", "Iron", "JPX923 Hot Metal Irons", "25.0°", false, "2023"),
-
-        // Odyssey
-        ClubCatalogEntry(listOf("ODYSSEY"), "Odyssey", "Putter", "Odyssey Putter", "3.0°", false, "2023")
+        ClubCatalogEntry(listOf("ST-MAX", "230"), "Mizuno", "Driver", "ST-MAX 230 Driver", "9.5°", true, "2024")
     )
 
-    // Fallback default master list if Room is empty
     private val defaultBrands = listOf(
         "Titleist", "Callaway", "TaylorMade", "PING", "Cobra Golf", "PXG", "Wilson Staff", "Cleveland Golf",
         "Bettinardi Golf", "Odyssey", "Scotty Cameron", "Tour Edge", "Sub 70", "Maltby Golf", "New Level Golf",
@@ -102,57 +96,68 @@ object GolfClubRecognitionEngine {
     )
 
     suspend fun processImage(croppedBitmap: Bitmap, customBrands: List<String> = emptyList()): IdentifiedGolfClub {
-        // 1. Perform ML Kit Optical Text Recognition on cropped head bitmap
-        val initialIdentified = runOcrOnBitmap(croppedBitmap, customBrands)
+        // 1. Perform OCR objectively
+        val ocrIdentified = runOcrOnBitmap(croppedBitmap, customBrands)
 
-        // 2. Perform Kotlin CameraX Screw / Hosel Bolt Detection on cropped head bitmap
-        val screwResult = ScrewDetector.detectScrewOnGolfHead(croppedBitmap, initialIdentified.rawOcrText)
+        // 2. Perform Screw Detection
+        val screwResult = ScrewDetector.detectScrewOnGolfHead(croppedBitmap, ocrIdentified.rawOcrText)
 
-        // 3. Perform background web search verification to match internet descriptions/images
+        // 3. Perform Web Search & Visual Match
         val webResult = GolfWebSearchVerifier.verifyAndMatchWeb(
-            detectedBrand = initialIdentified.brand,
-            detectedModel = initialIdentified.modelType,
-            rawOcrText = initialIdentified.rawOcrText
+            detectedBrand = ocrIdentified.brand,
+            detectedModel = ocrIdentified.modelType,
+            rawOcrText = ocrIdentified.rawOcrText
         )
 
-        // 4. Perform Visual Comparison & Web Spec Extraction
         val visualResult = GolfVisualWebSearchEngine.performVisualWebSearch(
             croppedBitmap = croppedBitmap,
-            ocrText = initialIdentified.rawOcrText,
-            initialBrand = initialIdentified.brand,
-            initialModel = initialIdentified.modelType
+            ocrText = ocrIdentified.rawOcrText,
+            initialBrand = ocrIdentified.brand,
+            initialModel = ocrIdentified.modelType
         )
 
-        val finalAdjustable = screwResult.hasScrew || webResult.isAdjustable == true || initialIdentified.isAdjustable
+        val finalAdjustable = screwResult.hasScrew || webResult.isAdjustable == true || ocrIdentified.isAdjustable
 
-        return if (webResult.isVerified || visualResult.isMatched) {
-            val finalModel = visualResult.modelType ?: webResult.modelType ?: initialIdentified.modelType
-            val detectedClubType = detectClubTypeFromText(finalModel, initialIdentified.rawOcrText)
+        val webBrand = visualResult.brand ?: webResult.brand ?: ocrIdentified.brand
+        val webModel = visualResult.modelType ?: webResult.modelType ?: ocrIdentified.modelType
+        val webLoft = visualResult.loft ?: webResult.loft ?: ocrIdentified.loft
+        val webYear = visualResult.releaseYear ?: webResult.releaseYear ?: ocrIdentified.releaseYear
 
-            initialIdentified.copy(
-                brand = visualResult.brand ?: webResult.brand ?: initialIdentified.brand,
-                clubType = detectedClubType,
-                modelType = finalModel,
-                loft = visualResult.loft ?: webResult.loft ?: initialIdentified.loft,
-                isAdjustable = finalAdjustable,
-                releaseYear = visualResult.releaseYear ?: webResult.releaseYear ?: initialIdentified.releaseYear,
-                confidence = 0.98f,
-                isWebVerified = true,
-                webSourceDescription = if (webResult.isVerified) webResult.sourceDescription else visualResult.webSourceTitle,
-                hasScrewDetected = screwResult.hasScrew || finalAdjustable,
-                screwMessage = screwResult.detailMessage.ifBlank { "Baut Sleeve Hosel & Pemberat Terdeteksi" },
-                visualMatchScore = visualResult.similarityScore
-            )
-        } else {
-            initialIdentified.copy(
-                isAdjustable = finalAdjustable,
-                isWebVerified = false,
-                webSourceDescription = webResult.sourceDescription,
-                hasScrewDetected = screwResult.hasScrew,
-                screwMessage = screwResult.detailMessage,
-                visualMatchScore = 0.85f
-            )
-        }
+        val primaryBrand = if (visualResult.isMatched) webBrand else ocrIdentified.brand
+        val primaryModel = if (visualResult.isMatched) webModel else ocrIdentified.modelType
+        val primaryLoft = if (visualResult.isMatched) webLoft else ocrIdentified.loft
+        val primaryYear = if (visualResult.isMatched) webYear else ocrIdentified.releaseYear
+
+        val detectedClubType = detectClubTypeFromText(primaryModel, ocrIdentified.rawOcrText)
+
+        return IdentifiedGolfClub(
+            brand = primaryBrand,
+            clubType = detectedClubType,
+            modelType = primaryModel,
+            loft = primaryLoft,
+            isAdjustable = finalAdjustable,
+            releaseYear = primaryYear,
+            confidence = 0.95f,
+            rawOcrText = ocrIdentified.rawOcrText,
+            isWebVerified = visualResult.isMatched,
+            webSourceDescription = visualResult.webSourceTitle,
+            hasScrewDetected = screwResult.hasScrew || finalAdjustable,
+            screwMessage = screwResult.detailMessage.ifBlank { "Baut Sleeve Hosel & Pemberat Terdeteksi" },
+            visualMatchScore = visualResult.similarityScore,
+
+            // Left column (OCR Data)
+            ocrBrand = ocrIdentified.brand,
+            ocrModel = ocrIdentified.modelType,
+            ocrLoft = ocrIdentified.loft,
+            ocrYear = ocrIdentified.releaseYear,
+
+            // Right column (Web Search Data)
+            webBrand = webBrand,
+            webModel = webModel,
+            webLoft = webLoft,
+            webYear = webYear,
+            webUrl = visualResult.webSourceUrl
+        )
     }
 
     private suspend fun runOcrOnBitmap(bitmap: Bitmap, customBrands: List<String>): IdentifiedGolfClub = suspendCancellableCoroutine { continuation ->
@@ -182,6 +187,7 @@ object GolfClubRecognitionEngine {
     }
 
     private fun identifyFromText(ocrText: String, customBrands: List<String>): IdentifiedGolfClub {
+        // Objective evaluation of catalog entries based strictly on keyword match count
         var bestCatalogMatch: ClubCatalogEntry? = null
         var maxMatchedKeywords = 0
 
@@ -193,22 +199,16 @@ object GolfClubRecognitionEngine {
             }
         }
 
-        // Detection of bolt/screw/sleeve markings on head implies adjustable loft
         val hasBoltOrSleeve = ocrText.contains("BAUT") ||
                 ocrText.contains("SCREW") ||
                 ocrText.contains("BOLT") ||
                 ocrText.contains("WEIGHT") ||
-                ocrText.contains("TRACK") ||
-                ocrText.contains("SLIDER") ||
                 ocrText.contains("SLEEVE") ||
-                ocrText.contains("OPTIFIT") ||
-                ocrText.contains("SUREFIT") ||
-                ocrText.contains("FCT") ||
-                ocrText.contains("MYFLY") ||
                 ocrText.contains("ADJUSTABLE") ||
                 ocrText.contains("MAX") ||
                 ocrText.contains("DRIVER")
 
+        // Only match catalog if keywords match objectively
         if (bestCatalogMatch != null && maxMatchedKeywords >= 2) {
             val detectedLoft = extractLoft(ocrText) ?: bestCatalogMatch.defaultLoft
             return IdentifiedGolfClub(
@@ -223,24 +223,8 @@ object GolfClubRecognitionEngine {
             )
         }
 
-        if (bestCatalogMatch != null && maxMatchedKeywords == 1) {
-            val detectedLoft = extractLoft(ocrText) ?: bestCatalogMatch.defaultLoft
-            return IdentifiedGolfClub(
-                brand = bestCatalogMatch.brand,
-                clubType = bestCatalogMatch.clubType,
-                modelType = bestCatalogMatch.modelType,
-                loft = detectedLoft,
-                isAdjustable = if (hasBoltOrSleeve) true else bestCatalogMatch.isAdjustable,
-                releaseYear = bestCatalogMatch.releaseYear,
-                confidence = 0.75f,
-                rawOcrText = ocrText
-            )
-        }
-
-        // Fuzzy Brand Matching (handles OCR typos like "AYLORMADE" -> "TaylorMade")
         val activeBrands = customBrands.ifEmpty { defaultBrands }
         val brand = findBestFuzzyBrandMatch(ocrText, activeBrands)
-
         val detectedLoft = extractLoft(ocrText) ?: "10.5°"
 
         val modelWords = ocrText.split("\\s+".toRegex())
@@ -273,13 +257,8 @@ object GolfClubRecognitionEngine {
 
         for (brand in activeBrands) {
             val upperBrand = brand.uppercase(Locale.ROOT)
+            if (upperOcr.contains(upperBrand)) return brand
 
-            // 1. Exact substring match
-            if (upperOcr.contains(upperBrand)) {
-                return brand
-            }
-
-            // 2. Word-by-word fuzzy character similarity
             for (word in ocrWords) {
                 if (word.length < 3) continue
                 val score = calculateCharacterSimilarity(word, upperBrand)
@@ -289,15 +268,12 @@ object GolfClubRecognitionEngine {
                 }
             }
 
-            // 3. Full text character similarity check (e.g. "AYLORMADE" vs "TAYLORMADE")
             val fullScore = calculateCharacterSimilarity(upperOcr.replace(Regex("\\s+"), ""), upperBrand.replace(Regex("\\s+"), ""))
             if (fullScore > highestScore) {
                 highestScore = fullScore
                 bestMatchBrand = brand
             }
         }
-
-        // Accept fuzzy match if character similarity >= 65% (handles missing letters like AYLORMADE -> TaylorMade)
         return if (highestScore >= 0.65) bestMatchBrand else "No Brand"
     }
 

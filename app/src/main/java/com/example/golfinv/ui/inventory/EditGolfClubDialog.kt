@@ -1,24 +1,42 @@
 package com.example.golfinv.ui.inventory
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -36,11 +54,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import coil.compose.rememberAsyncImagePainter
+import com.example.golfinv.data.BrandEntity
 import com.example.golfinv.data.GolfClubEntity
 import com.example.golfinv.recognition.GolfClubRecognitionEngine
 import com.example.golfinv.ui.theme.GolfAccentGold
@@ -51,6 +76,7 @@ import com.example.golfinv.ui.theme.GolfGreenSecondary
 fun EditGolfClubDialog(
     club: GolfClubEntity?,
     isNewItem: Boolean = false,
+    brandList: List<BrandEntity> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (
         brand: String,
@@ -89,6 +115,8 @@ fun EditGolfClubDialog(
     var notes by remember(clubId, isNewItem) { mutableStateOf(club?.notes ?: "") }
 
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showBrandPicker by remember { mutableStateOf(false) }
+    var showFullScreenImage by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -122,6 +150,42 @@ fun EditGolfClubDialog(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
+                // Photo Thumbnail Preview (Clickable to view almost full-screen with pinch-to-zoom)
+                if (!club?.imagePath.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFF1F5F9))
+                            .clickable { showFullScreenImage = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = club?.imagePath),
+                            contentDescription = "Foto Head Stik Golf",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.Black.copy(alpha = 0.65f),
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(8.dp)
+                        ) {
+                            Text(
+                                text = "🔍 Tap Fullscreen",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
                 // Section 1: Kategori & Merek
                 SectionHeader("🏌️ KATEGORI & MODEL")
                 Spacer(modifier = Modifier.height(6.dp))
@@ -150,14 +214,26 @@ fun EditGolfClubDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedTextField(
-                    value = brand,
-                    onValueChange = { brand = it },
-                    label = { Text("Brand / Merek") },
-                    placeholder = { Text("TaylorMade, Titleist, Callaway, PING") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                // Brand Selector Field (Clickable to open Brand Picker Dialog)
+                Box(modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showBrandPicker = true }) {
+                    OutlinedTextField(
+                        value = brand,
+                        onValueChange = { brand = it },
+                        label = { Text("Brand / Merek (Pilih dari List / Ketik)") },
+                        placeholder = { Text("Klik ikon dropdown untuk pilih merek...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showBrandPicker = true }) {
+                                Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "Pilih Merek")
+                            }
+                        },
+                        singleLine = true
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
@@ -396,6 +472,74 @@ fun EditGolfClubDialog(
         }
     )
 
+    // Fullscreen Image Dialog Preview with Pinch-to-Zoom & Pan (No hint overlay)
+    if (showFullScreenImage && !club?.imagePath.isNullOrBlank()) {
+        Dialog(onDismissRequest = { showFullScreenImage = false }) {
+            var scale by remember { mutableStateOf(1f) }
+            var offsetX by remember { mutableStateOf(0f) }
+            var offsetY by remember { mutableStateOf(0f) }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.98f)
+                    .fillMaxHeight(0.9f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(model = club?.imagePath),
+                    contentDescription = "Full Screen Zoomable Photo",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                if (scale > 1f) {
+                                    offsetX += pan.x
+                                    offsetY += pan.y
+                                } else {
+                                    offsetX = 0f
+                                    offsetY = 0f
+                                }
+                            }
+                        }
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offsetX,
+                            translationY = offsetY
+                        ),
+                    contentScale = ContentScale.Fit
+                )
+
+                // Close Button
+                IconButton(
+                    onClick = { showFullScreenImage = false },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Tutup",
+                        tint = Color.White
+                    )
+                }
+            }
+        }
+    }
+
+    // Brand Picker Search Dialog (Scrolling & Searching master brand list)
+    if (showBrandPicker) {
+        BrandPickerDialog(
+            brandList = brandList,
+            onSelectBrand = { selected -> brand = selected },
+            onDismiss = { showBrandPicker = false }
+        )
+    }
+
     // Delete Confirmation Dialog
     if (showDeleteConfirmDialog && onDelete != null) {
         AlertDialog(
@@ -420,6 +564,90 @@ fun EditGolfClubDialog(
             }
         )
     }
+}
+
+@Composable
+fun BrandPickerDialog(
+    brandList: List<BrandEntity>,
+    onSelectBrand: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var brandSearchQuery by remember { mutableStateOf("") }
+    val filteredBrands = remember(brandList, brandSearchQuery) {
+        if (brandSearchQuery.isBlank()) {
+            brandList
+        } else {
+            brandList.filter { it.name.contains(brandSearchQuery, ignoreCase = true) }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pilih Merek Stik Golf", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 380.dp)
+            ) {
+                OutlinedTextField(
+                    value = brandSearchQuery,
+                    onValueChange = { brandSearchQuery = it },
+                    placeholder = { Text("Cari merek...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (filteredBrands.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Merek tidak ditemukan.", color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(filteredBrands, key = { it.id }) { brandEntity ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onSelectBrand(brandEntity.name)
+                                        onDismiss()
+                                    },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+                            ) {
+                                Text(
+                                    text = brandEntity.name,
+                                    modifier = Modifier.padding(12.dp),
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF0F172A)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(10.dp)) {
+                Text("Back")
+            }
+        }
+    )
 }
 
 @Composable

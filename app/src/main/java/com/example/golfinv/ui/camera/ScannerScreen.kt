@@ -22,14 +22,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.GolfCourse
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -58,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.golfinv.data.GolfClubEntity
 import com.example.golfinv.ui.MainViewModel
 import com.example.golfinv.ui.ScannerState
@@ -86,6 +86,8 @@ fun ScannerScreen(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted -> hasCameraPermission = isGranted }
     )
+
+    val brandList by viewModel.brandList.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) {
@@ -236,7 +238,7 @@ fun ScannerScreen(
             }
 
         } else {
-            // Frame is CAPTURED: Display cropped image & identified details card
+            // Frame is CAPTURED: Display OCR Scan Results Card
             val croppedBitmap = scannerState.lockedBitmap
 
             Column(
@@ -269,22 +271,22 @@ fun ScannerScreen(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Hasil Analisa Head Di-capture",
+                        text = "Hasil Scan OCR Head",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Display Cropped Head Image (Cropped strictly to the yellow reticle box)
+                // Display Cropped Head Image
                 if (croppedBitmap != null) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(240.dp),
+                            .height(200.dp),
                         shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             Image(
@@ -294,7 +296,6 @@ fun ScannerScreen(
                                 contentScale = ContentScale.Crop
                             )
 
-                            // Cropped Tag Overlay
                             Surface(
                                 shape = RoundedCornerShape(bottomEnd = 12.dp),
                                 color = Color.Black.copy(alpha = 0.7f),
@@ -312,7 +313,7 @@ fun ScannerScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Hasil Crop Box Kuning",
+                                        text = "Target Capture Box Kuning",
                                         color = Color.White,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold
@@ -323,9 +324,8 @@ fun ScannerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Identification Status & Details Card
                 if (scannerState.isAnalyzing) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -340,16 +340,9 @@ fun ScannerScreen(
                             CircularProgressIndicator(color = GolfGreenPrimary)
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Menganalisis Merek & Type Head...",
+                                text = "Menganalisis Teks OCR Head...",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "🌐 Membandingkan dengan gambar & deskripsi di internet...",
-                                fontSize = 12.sp,
-                                color = GolfGreenSecondary,
-                                textAlign = TextAlign.Center
+                                fontSize = 15.sp
                             )
                         }
                     }
@@ -369,7 +362,7 @@ fun ScannerScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "HASIL IDENTIFIKASI",
+                                    text = "HASIL IDENTIFIKASI OCR",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = GolfGreenSecondary,
@@ -385,14 +378,14 @@ fun ScannerScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.TravelExplore,
+                                            imageVector = Icons.Default.GolfCourse,
                                             contentDescription = null,
                                             tint = GolfGreenSecondary,
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = "Visual Web Match (${(club.visualMatchScore * 100).toInt()}%)",
+                                            text = "OCR Scan Match",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = GolfGreenSecondary
@@ -401,72 +394,22 @@ fun ScannerScreen(
                                 }
                             }
 
-                            // Screw Detection Badge
-                            if (club.hasScrewDetected || club.isAdjustable) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFFFFF3E0),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Build,
-                                            contentDescription = null,
-                                            tint = Color(0xFFE65100),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "🔩 ${if (club.screwMessage.isNotBlank()) club.screwMessage else "Baut Terdeteksi pada Head (Loft Adjustable)"}",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFE65100)
-                                        )
-                                    }
-                                }
-                            }
-
-                            if (club.webSourceDescription.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFFE8F5E9),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "🌐 ${club.webSourceDescription}",
-                                        fontSize = 11.sp,
-                                        color = GolfGreenPrimary,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.padding(8.dp)
-                                    )
-                                }
-                            }
-
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Extracted Detail Rows
-                            DetailItemRow(label = "Brand / Merek Web", value = club.brand, isHighlight = true)
+                            // OCR Identified Detail Rows
+                            DetailItemRow(label = "Brand / Merek", value = club.brand, isHighlight = true)
                             DetailItemRow(label = "Club Type", value = club.clubType, isHighlight = true)
                             DetailItemRow(label = "Model / Tipe", value = club.modelType)
                             DetailItemRow(
                                 label = "Loft Degree",
                                 value = "${club.loft} ${if (club.isAdjustable) "(Adjustable)" else "(Fixed)"}"
                             )
-                            DetailItemRow(
-                                label = "Adjustable Loft (Sleeve)",
-                                value = if (club.isAdjustable) "Ya (Terdapat Sleeve)" else "Tidak (Fixed Hosel)"
-                            )
                             DetailItemRow(label = "Tahun Release", value = club.releaseYear)
 
                             if (club.rawOcrText.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Teks OCR Head: ${club.rawOcrText.take(60)}...",
+                                    text = "Teks OCR Mentah: ${club.rawOcrText}",
                                     fontSize = 10.sp,
                                     color = Color.Gray
                                 )
@@ -477,7 +420,6 @@ fun ScannerScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     if (scannerState.savedSuccessfully) {
-                        // Success Feedback Banner
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = GolfGreenSecondary.copy(alpha = 0.15f))
@@ -502,22 +444,15 @@ fun ScannerScreen(
                                         color = GolfGreenPrimary
                                     )
                                     Text(
-                                        text = "Data spesifikasi web & foto cropped telah disimpan.",
+                                        text = "Kembali ke mode kamera...",
                                         fontSize = 12.sp,
                                         color = Color.Gray
                                     )
                                 }
-                                Button(
-                                    onClick = onNavigateToInventory,
-                                    colors = ButtonDefaults.buttonColors(containerColor = GolfGreenPrimary)
-                                ) {
-                                    Text("Lihat List", fontSize = 12.sp)
-                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
                     } else {
-                        // Action Buttons: Save to inventory list OR Edit before save
+                        // Action Buttons: Edit Detail or Simpan Data
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -535,7 +470,7 @@ fun ScannerScreen(
                             Button(
                                 onClick = {
                                     viewModel.saveIdentifiedClubToInventory()
-                                    viewModel.unlockHead() // Return to live head capture camera view
+                                    viewModel.unlockHead()
                                 },
                                 modifier = Modifier.weight(1.3f),
                                 shape = RoundedCornerShape(12.dp),
@@ -566,6 +501,7 @@ fun ScannerScreen(
         EditGolfClubDialog(
             club = tempEntity,
             isNewItem = false,
+            brandList = brandList,
             onDismiss = { showEditDialogBeforeSave = false },
             onSave = { brand, clubType, type, loft, adjustable, year, shaft, grip, condition, cost, sell, isSold, notes ->
                 viewModel.saveIdentifiedClubToInventory(
@@ -584,7 +520,7 @@ fun ScannerScreen(
                     notes = notes
                 )
                 showEditDialogBeforeSave = false
-                viewModel.unlockHead() // Return to live head capture camera view
+                viewModel.unlockHead()
             }
         )
     }

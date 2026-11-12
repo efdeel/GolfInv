@@ -22,6 +22,7 @@ data class ScannerState(
     val lockedBitmap: Bitmap? = null,
     val isAnalyzing: Boolean = false,
     val identifiedClub: IdentifiedGolfClub? = null,
+    val matchedInventoryClub: GolfClubEntity? = null,
     val savedSuccessfully: Boolean = false
 )
 
@@ -99,15 +100,26 @@ class MainViewModel(
             lockedBitmap = croppedBitmap,
             isAnalyzing = true,
             identifiedClub = null,
+            matchedInventoryClub = null,
             savedSuccessfully = false
         )
 
         viewModelScope.launch {
             val currentBrands = brandList.value.map { data -> data.name }
             val result = GolfClubRecognitionEngine.processImage(croppedBitmap, currentBrands)
+
+            val allClubs = inventoryList.value
+            val bestInventoryMatch = allClubs.find { club ->
+                club.brand.equals(result.brand, ignoreCase = true) &&
+                        club.modelType.contains(result.modelType, ignoreCase = true)
+            } ?: allClubs.firstOrNull { club ->
+                club.brand.equals(result.brand, ignoreCase = true)
+            }
+
             _scannerState.value = _scannerState.value.copy(
                 isAnalyzing = false,
-                identifiedClub = result
+                identifiedClub = result,
+                matchedInventoryClub = bestInventoryMatch
             )
         }
     }
@@ -120,6 +132,7 @@ class MainViewModel(
             lockedBitmap = null,
             isAnalyzing = false,
             identifiedClub = null,
+            matchedInventoryClub = null,
             savedSuccessfully = false
         )
     }
@@ -248,7 +261,7 @@ class MainViewModel(
         }
     }
 
-        fun deleteAllClubs() {
+    fun deleteAllClubs() {
         viewModelScope.launch {
             repository.deleteAllClubs()
             _editingClub.value = null

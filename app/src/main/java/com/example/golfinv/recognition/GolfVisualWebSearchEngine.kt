@@ -30,8 +30,8 @@ object GolfVisualWebSearchEngine {
     private const val TAG = "GolfVisualWebSearch"
 
     /**
-     * Performs visual comparison & web logo matching against golf brand emblems and equipment databases
-     * using the captured cropped bitmap and visual/OCR features.
+     * Once brand and club head type/model are identified, searches the internet
+     * using keywords: [brand] [type] release date to reliably extract release year information.
      */
     suspend fun performVisualWebSearch(
         croppedBitmap: Bitmap,
@@ -44,7 +44,9 @@ object GolfVisualWebSearchEngine {
             val detectedLogo = detectGolfBrandLogo(croppedBitmap, ocrText)
 
             val queryBrand = if (detectedLogo.isLogoMatch) detectedLogo.brandName else initialBrand
-            val queryKeywords = "$queryBrand $initialModel golf club specs logo image match release year".trim()
+
+            // 2. Search query formulated precisely as: [brand] [type] release date
+            val queryKeywords = "$queryBrand $initialModel release date".trim()
 
             val encodedQuery = URLEncoder.encode(queryKeywords, "UTF-8")
             val searchUrl = "https://html.duckduckgo.com/html/?q=$encodedQuery"
@@ -60,7 +62,12 @@ object GolfVisualWebSearchEngine {
                 val htmlText = connection.inputStream.bufferedReader().use { it.readText() }
                 val cleanText = htmlText.replace(Regex("<[^>]*>"), " ").uppercase(Locale.ROOT)
 
-                val yearMatcher = Pattern.compile("""\b(201[5-9]|202[0-5])\b""").matcher(cleanText)
+                // Extract web link URL from search results
+                val urlMatcher = Regex("href=\"(https?://[^\"]+)\"", RegexOption.IGNORE_CASE).find(htmlText)
+                val extractedWebUrl = urlMatcher?.groupValues?.get(1) ?: searchUrl
+
+                // Extract release year from web search results text matching release date / year
+                val yearMatcher = Pattern.compile("""\b(201[0-9]|202[0-5])\b""").matcher(cleanText)
                 val webYear = if (yearMatcher.find()) yearMatcher.group(1) else "2024"
 
                 val loftMatcher = Pattern.compile("""\b(8\.5|9\.0|9\.5|10\.0|10\.5|11\.5|12\.0|15\.0|54|56|60)°?\b""").matcher(cleanText)
@@ -76,9 +83,9 @@ object GolfVisualWebSearchEngine {
                         cleanText.contains("ADJUSTABLE")
 
                 val finalBrand = if (detectedLogo.isLogoMatch) detectedLogo.brandName else initialBrand.ifBlank { "TaylorMade" }
-                val matchedTitle = "Logo Matching Web: $queryBrand (Kecocokan ${ (detectedLogo.confidence * 100).toInt() }%)"
+                val matchedTitle = "Web Release Date Match: $queryBrand (${(detectedLogo.confidence * 100).toInt()}% Confidence)"
 
-                Log.d(TAG, "Visual Web & Logo Match Success! Brand: $queryBrand, LogoMatched: ${detectedLogo.isLogoMatch}")
+                Log.d(TAG, "Web Search Query [$queryKeywords] Success! URL: $extractedWebUrl, Year: $webYear")
 
                 return@withContext VisualWebMatchResult(
                     isMatched = true,
@@ -91,7 +98,7 @@ object GolfVisualWebSearchEngine {
                     logoMatched = detectedLogo.isLogoMatch,
                     logoName = detectedLogo.brandName,
                     webSourceTitle = matchedTitle,
-                    webSourceUrl = searchUrl
+                    webSourceUrl = extractedWebUrl
                 )
             }
 
@@ -106,7 +113,7 @@ object GolfVisualWebSearchEngine {
                 logoMatched = true,
                 logoName = initialBrand,
                 webSourceTitle = "Database Visual Web Golf",
-                webSourceUrl = ""
+                webSourceUrl = searchUrl
             )
 
         } catch (e: Exception) {
