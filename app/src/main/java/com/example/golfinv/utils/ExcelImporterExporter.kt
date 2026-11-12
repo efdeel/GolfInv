@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
 import android.util.Log
+import com.example.golfinv.data.BrandEntity
 import com.example.golfinv.data.GolfClubEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -271,6 +272,129 @@ object ExcelImporterExporter {
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
             .replace("'", "&#39;")
+    }
+
+    /**
+     * Exports golf club brands list to an Excel file (.xls format).
+     */
+    suspend fun exportBrandsToExcelXls(
+        context: Context,
+        uri: Uri,
+        brands: List<BrandEntity>
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                OutputStreamWriter(outputStream, StandardCharsets.UTF_8).use { writer ->
+                    val htmlBuilder = StringBuilder()
+                    htmlBuilder.append("<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:x=\"urn:schemas-microsoft-com:office:excel\" xmlns=\"http://www.w3.org/TR/REC-html40\">\n")
+                    htmlBuilder.append("<head><meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\n")
+                    htmlBuilder.append("<style>table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #999; padding: 8px; text-align: left; vertical-align: middle; }</style>\n")
+                    htmlBuilder.append("</head>\n<body>\n")
+                    htmlBuilder.append("<h2>Daftar Merek Stik Golf</h2>\n")
+                    htmlBuilder.append("<table>\n")
+                    htmlBuilder.append("<tr><th>No</th><th>Nama Merek</th></tr>\n")
+
+                    for ((index, brand) in brands.withIndex()) {
+                        htmlBuilder.append("<tr>")
+                        htmlBuilder.append("<td>").append(index + 1).append("</td>")
+                        htmlBuilder.append("<td>").append(escapeHtml(brand.name)).append("</td>")
+                        htmlBuilder.append("</tr>\n")
+                    }
+
+                    htmlBuilder.append("</table>\n</body>\n</html>")
+                    writer.write(htmlBuilder.toString())
+                    writer.flush()
+                }
+            }
+            Log.d(TAG, "Exported ${brands.size} brands to Excel successfully")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error exporting brands to Excel", e)
+            false
+        }
+    }
+
+    /**
+     * Imports golf club brands from an Excel file (.xls / HTML / CSV / TSV format).
+     */
+    suspend fun importBrandsFromExcelXls(
+        context: Context,
+        uri: Uri
+    ): List<BrandEntity> = withContext(Dispatchers.IO) {
+        val importedBrands = mutableListOf<BrandEntity>()
+        try {
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                val content = BufferedReader(InputStreamReader(inputStream, StandardCharsets.UTF_8)).use { it.readCodeOrText() }
+
+                if (content.contains("<table", ignoreCase = true)) {
+                    importedBrands.addAll(parseHtmlExcelBrands(content))
+                } else {
+                    importedBrands.addAll(parseTsvCsvExcelBrands(content))
+                }
+            }
+            Log.d(TAG, "Imported ${importedBrands.size} brands from Excel successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error importing brands from Excel", e)
+        }
+        importedBrands.distinctBy { it.name.trim().uppercase() }.filter { it.name.isNotBlank() }
+    }
+
+    private fun parseHtmlExcelBrands(html: String): List<BrandEntity> {
+        val list = mutableListOf<BrandEntity>()
+        try {
+            val trRegex = Regex("<tr[^>]*>(.*?)</tr>", RegexOption.IGNORE_CASE)
+            val tdRegex = Regex("<t[dh][^>]*>(.*?)</t[dh]>", RegexOption.IGNORE_CASE)
+
+            val trMatches = trRegex.findAll(html).drop(1) // Skip header
+
+            for (tr in trMatches) {
+                val rowHtml = tr.groupValues[1]
+                val tds = tdRegex.findAll(rowHtml).map { it.groupValues[1] }.toList()
+
+                if (tds.isNotEmpty()) {
+                    val rawName = if (tds.size >= 2) tds[1] else tds[0]
+                    val name = extractPlainText(rawName)
+                    val isHeader = name.equals("Nama Merek", ignoreCase = true) ||
+                            name.equals("Brand", ignoreCase = true) ||
+                            name.equals("Merek", ignoreCase = true) ||
+                            name.equals("No", ignoreCase = true)
+
+                    if (name.isNotBlank() && !isHeader) {
+                        list.add(BrandEntity(name = name.trim()))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing HTML Excel brands", e)
+        }
+        return list
+    }
+
+    private fun parseTsvCsvExcelBrands(content: String): List<BrandEntity> {
+        val list = mutableListOf<BrandEntity>()
+        val lines = content.lines()
+        for ((index, line) in lines.withIndex()) {
+            val clean = line.replace("\uFEFF", "").trim()
+            if (clean.isBlank()) continue
+
+            val delimiter = if (clean.contains("\t")) "\t" else ","
+            val tokens = clean.split(delimiter).map { it.trim().removeSurrounding("\"") }
+
+            if (tokens.isNotEmpty()) {
+                val rawName = if (tokens.size >= 2 && tokens[0].all { it.isDigit() }) tokens[1] else tokens[0]
+                val isHeader = rawName.equals("Nama Merek", ignoreCase = true) ||
+                        rawName.equals("Brand", ignoreCase = true) ||
+                        rawName.equals("Merek", ignoreCase = true) ||
+                        rawName.equals("No", ignoreCase = true)
+
+                if (index == 0 && isHeader) continue
+
+                if (rawName.isNotBlank() && !isHeader) {
+                    list.add(BrandEntity(name = rawName.trim()))
+                }
+            }
+        }
+        return list
     }
 
     private fun BufferedReader.readCodeOrText(): String {

@@ -88,6 +88,18 @@ class MainViewModel(
         }
     }
 
+    fun importBrands(brands: List<BrandEntity>, replaceExisting: Boolean = true) {
+        viewModelScope.launch {
+            repository.importBrands(brands, replaceExisting)
+        }
+    }
+
+    fun deleteAllBrands() {
+        viewModelScope.launch {
+            repository.deleteAllBrands()
+        }
+    }
+
     /**
      * Captures camera bitmap, crops it strictly to the yellow reticle frame box,
      * and performs OCR + background web visual comparison & spec extraction.

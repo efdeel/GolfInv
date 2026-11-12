@@ -524,6 +524,7 @@ fun InventoryScreen(
             onAddBrand = { viewModel.addBrand(it) },
             onUpdateBrand = { brand, newName -> viewModel.updateBrand(brand, newName) },
             onDeleteBrand = { viewModel.deleteBrand(it) },
+            onImportBrands = { importedBrands -> viewModel.importBrands(importedBrands, replaceExisting = true) },
             onDismiss = { showBrandSettingsDialog = false }
         )
     }

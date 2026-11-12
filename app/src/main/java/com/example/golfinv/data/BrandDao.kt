@@ -25,6 +25,9 @@ interface BrandDao {
     @Delete
     suspend fun deleteBrand(brand: BrandEntity)
 
+    @Query("DELETE FROM golf_brands")
+    suspend fun deleteAllBrands()
+
     @Query("""
         DELETE FROM golf_brands WHERE id NOT IN (
             SELECT MIN(id) FROM golf_brands GROUP BY UPPER(name)

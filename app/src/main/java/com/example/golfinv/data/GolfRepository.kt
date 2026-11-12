@@ -86,7 +86,7 @@ class GolfRepository(
                 "Forgan of St Andrews", "John Letters", "Slazenger", "Benross", "Masters Golf", "Lynx Golf", "Inesis",
                 "Kramski", "BIG MAX", "Longridge", "GolfKicks", "PGM (Pro Golf Master)", "Koala Golf", "Handa Golf",
                 "AG High Performance", "Shenzhen Impact Golf"
-            ).map { BrandEntity(name = it) }
+            ).map { brandName -> BrandEntity(name = brandName) }
 
             brandDao.insertBrands(defaultBrands)
             prefs.edit().putBoolean("default_brands_seeded_v5", true).apply()
@@ -114,6 +114,20 @@ class GolfRepository(
 
     suspend fun deleteBrand(brand: BrandEntity) {
         brandDao.deleteBrand(brand)
+        AutoBackupManager.backupDatabase(context)
+    }
+
+    suspend fun deleteAllBrands() {
+        brandDao.deleteAllBrands()
+        AutoBackupManager.backupDatabase(context)
+    }
+
+    suspend fun importBrands(brands: List<BrandEntity>, replaceExisting: Boolean = true) {
+        if (replaceExisting) {
+            brandDao.deleteAllBrands()
+        }
+        brandDao.insertBrands(brands)
+        brandDao.removeDuplicateBrands()
         AutoBackupManager.backupDatabase(context)
     }
 

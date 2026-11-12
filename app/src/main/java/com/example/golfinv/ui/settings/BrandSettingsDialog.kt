@@ -1,6 +1,8 @@
 package com.example.golfinv.ui.settings
 
-import androidx.compose.foundation.background
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +18,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -35,15 +39,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.golfinv.data.BrandEntity
 import com.example.golfinv.ui.theme.GolfGreenPrimary
+import com.example.golfinv.utils.ExcelImporterExporter
+import kotlinx.coroutines.launch
 
 @Composable
 fun BrandSettingsDialog(
@@ -51,11 +59,49 @@ fun BrandSettingsDialog(
     onAddBrand: (String) -> Unit,
     onUpdateBrand: (BrandEntity, String) -> Unit,
     onDeleteBrand: (BrandEntity) -> Unit,
+    onImportBrands: (List<BrandEntity>) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     var newBrandName by remember { mutableStateOf("") }
     var editingBrand by remember { mutableStateOf<BrandEntity?>(null) }
     var editBrandName by remember { mutableStateOf("") }
+
+    var showImportConfirmDialog by remember { mutableStateOf(false) }
+
+    // SAF Launchers for Brand Export & Import Excel (.xls)
+    val exportBrandsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.ms-excel")
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                val success = ExcelImporterExporter.exportBrandsToExcelXls(context, uri, brands)
+                if (success) {
+                    Toast.makeText(context, "Berhasil mengekspor ${brands.size} merek ke file Excel (.xls)!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(context, "Gagal mengekspor file Excel.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val importBrandsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                val imported = ExcelImporterExporter.importBrandsFromExcelXls(context, uri)
+                if (imported.isNotEmpty()) {
+                    onImportBrands(imported)
+                    Toast.makeText(context, "Berhasil mengimpor ${imported.size} merek! Data lama telah dihapus.", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(context, "Tidak ada data merek yang ditemukan di file Excel.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -69,7 +115,7 @@ fun BrandSettingsDialog(
                     color = GolfGreenPrimary
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Label,
+                        imageVector = Icons.AutoMirrored.Filled.Label,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.padding(6.dp).size(20.dp)
@@ -86,8 +132,40 @@ fun BrandSettingsDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                    .heightIn(max = 440.dp)
             ) {
+                // Export & Import Excel Buttons Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            exportBrandsLauncher.launch("Daftar_Merek_Golf_${System.currentTimeMillis()}.xls")
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Export Excel", fontSize = 12.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            showImportConfirmDialog = true
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Import Excel", fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // Add New Brand Bar
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -205,6 +283,35 @@ fun BrandSettingsDialog(
             }
         }
     )
+
+    // Confirm Import Brands Dialog (Deletes old data first!)
+    if (showImportConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportConfirmDialog = false },
+            title = { Text("⚠️ Import Merek Stik Golf", fontWeight = FontWeight.Bold) },
+            text = { Text("Proses import akan MENGHAPUS SELURUH DATA MEREK YANG LAMA (${brands.size} merek) dan menggantinya dengan data baru dari file Excel (.xls).\n\nApakah Anda yakin ingin melanjutkan?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showImportConfirmDialog = false
+                        importBrandsLauncher.launch(arrayOf("*/*", "application/vnd.ms-excel", "text/csv"))
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Ya, Hapus Data Lama & Import")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showImportConfirmDialog = false },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
 
     // Edit Brand Dialog
     if (editingBrand != null) {
